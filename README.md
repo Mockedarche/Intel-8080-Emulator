@@ -4,5 +4,7 @@ Space for my implementation of a Intel 8080 emulation (just the CORE instruction
 Working on
 
 opcodes for the i8080 core 
+
 Completed 0x00 - 0x31 
+
 Uncompleted 0x32 - 0xFF
