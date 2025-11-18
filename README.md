@@ -5,6 +5,6 @@ Working on
 
 opcodes for the i8080 core 
 
-Completed 0x00 - 0x31 
+Completed 0x00 - 0x76 
 
-Uncompleted 0x32 - 0xFF
+Uncompleted 0x77 - 0xFF
