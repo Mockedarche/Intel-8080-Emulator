@@ -1,5 +1,12 @@
 use std::{fs, usize};
 
+/*
+ * Todo
+ * Implement 0x76 HALT fully as of right now just returns a StepInteructionResult
+ * with a half to notify whatever is running the i8080 core
+ * Finish rest of opcodes
+ */
+
 pub enum LoadRomResult {
     Ok,
     Error,
@@ -11,6 +18,7 @@ pub enum StepInstructionResult {
     Error,
     NotKnownOpcode,
     NoOperation,
+    Halt,
 }
 
 const MEMORY_SIZE: usize = 65536;
@@ -501,7 +509,390 @@ impl I8080Core {
                 self.program_counter = self.program_counter.wrapping_add(3);
                 return StepInstructionResult::Ok;
             }
-            0x32..=0xFF => {
+            0x32 => {
+                let addr = (self.memory[(self.program_counter as usize) + 2] as u16) << 8
+                    | (self.memory[(self.program_counter as usize) + 1] as u16);
+                self.memory[addr as usize] = self.a;
+                self.program_counter = self.program_counter.wrapping_add(3);
+                return StepInstructionResult::Ok;
+            }
+            0x33 => {
+                self.stack_pointer = self.stack_pointer.wrapping_add(1);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x34 => {
+                self.h = self.h.wrapping_add(1);
+                self.set_sign_flag(self.h);
+                self.set_zero_flag(self.h);
+                self.set_auxiliary_carry(self.h - 1, 1, self.h);
+                self.set_parity_flag(self.h as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x35 => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+
+                self.memory[addr as usize] = self.memory[addr as usize].wrapping_sub(1);
+
+                self.set_sign_flag(self.memory[addr as usize]);
+                self.set_zero_flag(self.memory[addr as usize]);
+                self.set_auxiliary_carry(
+                    self.memory[addr as usize] + 1,
+                    get_twos_compliment(1),
+                    self.memory[addr as usize],
+                );
+                self.set_parity_flag(self.memory[addr as usize] as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+
+                return StepInstructionResult::Ok;
+            }
+            0x36 => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+
+                self.memory[addr as usize] = self.memory[(self.program_counter as usize) + 1];
+                self.program_counter = self.program_counter.wrapping_add(2);
+                return StepInstructionResult::Ok;
+            }
+            0x37 => {
+                self.carry = true;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x38 => {
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::NoOperation;
+            }
+            0x39 => {
+                let mut hl = (self.h as u16) << 8 | self.l as u16;
+                let sum = hl.wrapping_add(self.stack_pointer);
+                self.carry = sum < hl;
+                self.h = (sum >> 8) as u8;
+                self.l = sum as u8;
+                return StepInstructionResult::Ok;
+            }
+            0x3A => {
+                let addr = (self.memory[(self.program_counter as usize) + 2] as u16) << 8
+                    | (self.memory[(self.program_counter as usize) + 1] as u16);
+
+                self.a = self.memory[addr as usize];
+                self.program_counter = self.program_counter.wrapping_add(3);
+                return StepInstructionResult::Ok;
+            }
+            0x3B => {
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x3C => {
+                self.a = self.a.wrapping_add(1);
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_auxiliary_carry(self.a - 1, 1, self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x3D => {
+                self.a = self.a.wrapping_sub(1);
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_auxiliary_carry(self.a + 1, get_twos_compliment(1), self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x3E => {
+                self.a = self.memory[(self.program_counter as usize) + 1];
+                self.program_counter = self.program_counter.wrapping_add(2);
+                return StepInstructionResult::Ok;
+            }
+            0x3F => {
+                self.carry = !self.carry;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x40 => {
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x41 => {
+                self.b = self.c;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x42 => {
+                self.b = self.d;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x43 => {
+                self.b = self.e;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x44 => {
+                self.b = self.h;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x45 => {
+                self.b = self.l;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x46 => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+                self.b = self.memory[addr as usize];
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x47 => {
+                self.b = self.a;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x48 => {
+                self.c = self.b;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x49 => {
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x4A => {
+                self.c = self.d;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x4B => {
+                self.c = self.e;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x4C => {
+                self.c = self.h;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x4D => {
+                self.c = self.l;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x4E => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+                self.c = self.memory[addr as usize];
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x4F => {
+                self.c = self.a;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x50 => {
+                self.d = self.b;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x51 => {
+                self.d = self.c;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x52 => {
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x53 => {
+                self.d = self.e;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x54 => {
+                self.d = self.h;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x55 => {
+                self.d = self.l;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x56 => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+                self.d = self.memory[addr as usize];
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x57 => {
+                self.d = self.a;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x58 => {
+                self.e = self.b;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x59 => {
+                self.e = self.c;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x5A => {
+                self.e = self.d;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x5B => {
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x5C => {
+                self.e = self.h;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x5D => {
+                self.e = self.l;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x5E => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+                self.e = self.memory[addr as usize];
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x5F => {
+                self.e = self.a;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x60 => {
+                self.h = self.b;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x61 => {
+                self.h = self.c;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x62 => {
+                self.h = self.d;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x63 => {
+                self.h = self.e;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x64 => {
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x65 => {
+                self.h = self.l;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x66 => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+                self.h = self.memory[addr as usize];
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x67 => {
+                self.h = self.a;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x68 => {
+                self.l = self.b;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x69 => {
+                self.l = self.c;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x6A => {
+                self.l = self.d;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x6B => {
+                self.l = self.e;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x6C => {
+                self.l = self.h;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x6D => {
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x6E => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+                self.l = self.memory[addr as usize];
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x6F => {
+                self.l = self.a;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x70 => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+                self.memory[addr as usize] = self.b;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x71 => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+                self.memory[addr as usize] = self.c;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x72 => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+                self.memory[addr as usize] = self.d;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x73 => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+                self.memory[addr as usize] = self.e;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x74 => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+                self.memory[addr as usize] = self.h;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x75 => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+                self.memory[addr as usize] = self.l;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x76 => {
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Halt;
+            }
+            0x77..=0xFF => {
                 return StepInstructionResult::Ok;
             }
         }
