@@ -111,14 +111,24 @@ impl I8080Core {
     }
 
     /*
-     * set_auxiliary_carry_flag - Function
+     * set_auxiliary_carry_addition_flag - Function
      * Expects: self to be initialized and value to be valid data (which is to say the resulting value of
      * an opcode)
      * Does: Sets the i8080Core objects auxiliary carry flag if the most sig bit of the first nibble becomes the
      * first bit of the second nibble EX: 0x0F + 0x01 = 0x10
      */
-    pub fn set_auxiliary_carry(&mut self, first: u8, second: u8, result: u8) {
+    pub fn set_auxiliary_carry_addition_flag(&mut self, first: u8, second: u8, result: u8) {
         self.auxiliary_carry = ((first ^ second ^ result) & 0x10) != 0;
+    }
+
+    /*
+     * set_auxiliary_carry_subtraction_flag - Function
+     * Expects: self to be initialized and value to be valid data (which is to say the resulting value of
+     * an opcode)
+     * Does: Sets the i8080Core objects auxiliary carry flag if the lower nibble needed a borrow
+     */
+    pub fn set_auxiliary_carry_subtraction_flag(&mut self, first: u8, second: u8) {
+        self.auxiliary_carry = (first & 0x0F) < (second & 0x0F);
     }
 
     /*
@@ -149,12 +159,21 @@ impl I8080Core {
     }
 
     /*
-     * set_carry_flag_arithmetic - Function
+     * set_carry_flag_arithmetic_addition - Function
      * Epects: self to be initialized and value to be valid data (which is to say its the correct registers value)
      * Does: Sets the carry flag if the 9th bit is 1 indicating the u8 arithmetic actually overflowed
      */
-    pub fn set_carry_flag_arithmetic(&mut self, value: u16) {
+    pub fn set_carry_flag_arithmetic_addition(&mut self, value: u16) {
         self.carry = (value & 0x0100) != 0;
+    }
+
+    /*
+     * set_carry_flag_arithmetic_subtraction - Function
+     * Epects: self to be initialized and value to be valid data (which is to say its the correct registers value)
+     * Does: Sets the carry flag if a borrow occured in a subtraction
+     */
+    pub fn set_carry_flag_arithmetic_subtraction(&mut self, first: u8, second: u8) {
+        self.carry = first < second;
     }
 
     /*
@@ -199,7 +218,7 @@ impl I8080Core {
                 self.b = self.b.wrapping_add(1);
                 self.set_sign_flag(self.b);
                 self.set_zero_flag(self.b);
-                self.set_auxiliary_carry(self.b - 1, 1, self.b);
+                self.set_auxiliary_carry_addition_flag(self.b - 1, 1, self.b);
                 self.set_parity_flag(self.b as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -208,7 +227,7 @@ impl I8080Core {
                 self.b = self.b.wrapping_sub(1);
                 self.set_sign_flag(self.b);
                 self.set_zero_flag(self.b);
-                self.set_auxiliary_carry(self.b + 1, get_twos_compliment(1), self.b);
+                self.set_auxiliary_carry_addition_flag(self.b + 1, get_twos_compliment(1), self.b);
                 self.set_parity_flag(self.b as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -254,7 +273,7 @@ impl I8080Core {
                 self.c = self.c.wrapping_add(1);
                 self.set_sign_flag(self.c);
                 self.set_zero_flag(self.c);
-                self.set_auxiliary_carry(self.c - 1, 1, self.c);
+                self.set_auxiliary_carry_addition_flag(self.c - 1, 1, self.c);
                 self.set_parity_flag(self.c as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -263,7 +282,7 @@ impl I8080Core {
                 self.c = self.c.wrapping_sub(1);
                 self.set_sign_flag(self.c);
                 self.set_zero_flag(self.c);
-                self.set_auxiliary_carry(self.c + 1, get_twos_compliment(1), self.c);
+                self.set_auxiliary_carry_addition_flag(self.c + 1, get_twos_compliment(1), self.c);
                 self.set_parity_flag(self.c as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -306,7 +325,7 @@ impl I8080Core {
                 self.d = self.d.wrapping_add(1);
                 self.set_sign_flag(self.d);
                 self.set_zero_flag(self.d);
-                self.set_auxiliary_carry(self.d - 1, 1, self.d);
+                self.set_auxiliary_carry_addition_flag(self.d - 1, 1, self.d);
                 self.set_parity_flag(self.d as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -315,7 +334,7 @@ impl I8080Core {
                 self.d = self.d.wrapping_sub(1);
                 self.set_sign_flag(self.d);
                 self.set_zero_flag(self.d);
-                self.set_auxiliary_carry(self.d + 1, get_twos_compliment(1), self.d);
+                self.set_auxiliary_carry_addition_flag(self.d + 1, get_twos_compliment(1), self.d);
                 self.set_parity_flag(self.d as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -362,7 +381,7 @@ impl I8080Core {
                 self.e = self.e.wrapping_add(1);
                 self.set_sign_flag(self.e);
                 self.set_zero_flag(self.e);
-                self.set_auxiliary_carry(self.e - 1, 1, self.e);
+                self.set_auxiliary_carry_addition_flag(self.e - 1, 1, self.e);
                 self.set_parity_flag(self.e as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -371,7 +390,7 @@ impl I8080Core {
                 self.e = self.e.wrapping_sub(1);
                 self.set_sign_flag(self.e);
                 self.set_zero_flag(self.e);
-                self.set_auxiliary_carry(self.e + 1, get_twos_compliment(1), self.e);
+                self.set_auxiliary_carry_addition_flag(self.e + 1, get_twos_compliment(1), self.e);
                 self.set_parity_flag(self.e as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -418,7 +437,7 @@ impl I8080Core {
                 self.h = self.h.wrapping_add(1);
                 self.set_sign_flag(self.h);
                 self.set_zero_flag(self.h);
-                self.set_auxiliary_carry(self.h - 1, 1, self.h);
+                self.set_auxiliary_carry_addition_flag(self.h - 1, 1, self.h);
                 self.set_parity_flag(self.h as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -427,7 +446,7 @@ impl I8080Core {
                 self.h = self.h.wrapping_sub(1);
                 self.set_sign_flag(self.h);
                 self.set_zero_flag(self.h);
-                self.set_auxiliary_carry(self.h + 1, get_twos_compliment(1), self.h);
+                self.set_auxiliary_carry_addition_flag(self.h + 1, get_twos_compliment(1), self.h);
                 self.set_parity_flag(self.h as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -441,14 +460,14 @@ impl I8080Core {
                 let mut sum = self.a as u16;
                 if ((self.a & 0x0F) > 9 || self.auxiliary_carry) {
                     sum += 6;
-                    self.set_auxiliary_carry(self.a, 6, self.a.wrapping_add(6));
+                    self.set_auxiliary_carry_addition_flag(self.a, 6, self.a.wrapping_add(6));
                     self.a = self.a.wrapping_add(6);
                 }
                 if (((self.a & 0xF0) >> 4) > 9 || self.carry) {
                     sum = self.a as u16 + 0x60;
                     self.a = self.a.wrapping_add(0x60);
                 }
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
@@ -487,7 +506,7 @@ impl I8080Core {
                 self.l = self.l.wrapping_add(1);
                 self.set_sign_flag(self.l);
                 self.set_zero_flag(self.l);
-                self.set_auxiliary_carry(self.l - 1, 1, self.l);
+                self.set_auxiliary_carry_addition_flag(self.l - 1, 1, self.l);
                 self.set_parity_flag(self.l as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -496,7 +515,7 @@ impl I8080Core {
                 self.l = self.l.wrapping_sub(1);
                 self.set_sign_flag(self.l);
                 self.set_zero_flag(self.l);
-                self.set_auxiliary_carry(self.l + 1, get_twos_compliment(1), self.l);
+                self.set_auxiliary_carry_addition_flag(self.l + 1, get_twos_compliment(1), self.l);
                 self.set_parity_flag(self.l as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -537,7 +556,7 @@ impl I8080Core {
                 self.h = self.h.wrapping_add(1);
                 self.set_sign_flag(self.h);
                 self.set_zero_flag(self.h);
-                self.set_auxiliary_carry(self.h - 1, 1, self.h);
+                self.set_auxiliary_carry_addition_flag(self.h - 1, 1, self.h);
                 self.set_parity_flag(self.h as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -549,7 +568,7 @@ impl I8080Core {
 
                 self.set_sign_flag(self.memory[addr as usize]);
                 self.set_zero_flag(self.memory[addr as usize]);
-                self.set_auxiliary_carry(
+                self.set_auxiliary_carry_addition_flag(
                     self.memory[addr as usize] + 1,
                     get_twos_compliment(1),
                     self.memory[addr as usize],
@@ -600,7 +619,7 @@ impl I8080Core {
                 self.a = self.a.wrapping_add(1);
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
-                self.set_auxiliary_carry(self.a - 1, 1, self.a);
+                self.set_auxiliary_carry_addition_flag(self.a - 1, 1, self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -609,7 +628,7 @@ impl I8080Core {
                 self.a = self.a.wrapping_sub(1);
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
-                self.set_auxiliary_carry(self.a + 1, get_twos_compliment(1), self.a);
+                self.set_auxiliary_carry_addition_flag(self.a + 1, get_twos_compliment(1), self.a);
                 self.set_parity_flag(self.a as u16);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
@@ -952,96 +971,100 @@ impl I8080Core {
             }
             0x80 => {
                 let sum = self.a as u16 + self.b as u16;
-                self.set_auxiliary_carry(self.a, self.b, sum as u8);
+                self.set_auxiliary_carry_addition_flag(self.a, self.b, sum as u8);
                 self.a = sum as u8;
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
             0x81 => {
                 let sum = self.a as u16 + self.c as u16;
-                self.set_auxiliary_carry(self.a, self.c, sum as u8);
+                self.set_auxiliary_carry_addition_flag(self.a, self.c, sum as u8);
                 self.a = sum as u8;
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
             0x82 => {
                 let sum = self.a as u16 + self.d as u16;
-                self.set_auxiliary_carry(self.a, self.d, sum as u8);
+                self.set_auxiliary_carry_addition_flag(self.a, self.d, sum as u8);
                 self.a = sum as u8;
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
             0x83 => {
                 let sum = self.a as u16 + self.e as u16;
-                self.set_auxiliary_carry(self.a, self.e, sum as u8);
+                self.set_auxiliary_carry_addition_flag(self.a, self.e, sum as u8);
                 self.a = sum as u8;
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
             0x84 => {
                 let sum = self.a as u16 + self.h as u16;
-                self.set_auxiliary_carry(self.a, self.h, sum as u8);
+                self.set_auxiliary_carry_addition_flag(self.a, self.h, sum as u8);
                 self.a = sum as u8;
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
             0x85 => {
                 let sum = self.a as u16 + self.l as u16;
-                self.set_auxiliary_carry(self.a, self.l, sum as u8);
+                self.set_auxiliary_carry_addition_flag(self.a, self.l, sum as u8);
                 self.a = sum as u8;
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
             0x86 => {
                 let addr = (self.h as u16) << 8 | (self.l as u16);
                 let sum = self.a as u16 + self.memory[addr as usize] as u16;
-                self.set_auxiliary_carry(self.a, self.memory[addr as usize], sum as u8);
+                self.set_auxiliary_carry_addition_flag(
+                    self.a,
+                    self.memory[addr as usize],
+                    sum as u8,
+                );
                 self.a = sum as u8;
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
             0x87 => {
                 let sum = self.a as u16 + self.a as u16;
-                self.set_auxiliary_carry(self.a, self.a, sum as u8);
+                self.set_auxiliary_carry_addition_flag(self.a, self.a, sum as u8);
                 self.a = sum as u8;
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
             0x88 => {
                 let sum = self.a as u16 + self.b as u16 + if self.carry { 1 } else { 0 };
-                self.set_auxiliary_carry(
+                self.set_auxiliary_carry_addition_flag(
                     self.a,
                     self.b.wrapping_add(if self.carry { 1 } else { 0 }),
                     sum as u8,
@@ -1050,13 +1073,13 @@ impl I8080Core {
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
             0x89 => {
                 let sum = self.a as u16 + self.c as u16 + if self.carry { 1 } else { 0 };
-                self.set_auxiliary_carry(
+                self.set_auxiliary_carry_addition_flag(
                     self.a,
                     self.c.wrapping_add(if self.carry { 1 } else { 0 }),
                     sum as u8,
@@ -1065,13 +1088,13 @@ impl I8080Core {
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
             0x8A => {
                 let sum = self.a as u16 + self.d as u16 + if self.carry { 1 } else { 0 };
-                self.set_auxiliary_carry(
+                self.set_auxiliary_carry_addition_flag(
                     self.a,
                     self.d.wrapping_add(if self.carry { 1 } else { 0 }),
                     sum as u8,
@@ -1080,13 +1103,13 @@ impl I8080Core {
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
             0x8B => {
                 let sum = self.a as u16 + self.e as u16 + if self.carry { 1 } else { 0 };
-                self.set_auxiliary_carry(
+                self.set_auxiliary_carry_addition_flag(
                     self.a,
                     self.e.wrapping_add(if self.carry { 1 } else { 0 }),
                     sum as u8,
@@ -1095,13 +1118,13 @@ impl I8080Core {
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
             0x8C => {
                 let sum = self.a as u16 + self.h as u16 + if self.carry { 1 } else { 0 };
-                self.set_auxiliary_carry(
+                self.set_auxiliary_carry_addition_flag(
                     self.a,
                     self.h.wrapping_add(if self.carry { 1 } else { 0 }),
                     sum as u8,
@@ -1110,13 +1133,13 @@ impl I8080Core {
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
             0x8D => {
                 let sum = self.a as u16 + self.l as u16 + if self.carry { 1 } else { 0 };
-                self.set_auxiliary_carry(
+                self.set_auxiliary_carry_addition_flag(
                     self.a,
                     self.l.wrapping_add(if self.carry { 1 } else { 0 }),
                     sum as u8,
@@ -1125,7 +1148,7 @@ impl I8080Core {
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
@@ -1134,7 +1157,7 @@ impl I8080Core {
                 let sum = self.a as u16
                     + self.memory[addr as usize] as u16
                     + if self.carry { 1 } else { 0 };
-                self.set_auxiliary_carry(
+                self.set_auxiliary_carry_addition_flag(
                     self.a,
                     self.memory[addr as usize].wrapping_add(if self.carry { 1 } else { 0 }),
                     sum as u8,
@@ -1143,13 +1166,13 @@ impl I8080Core {
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
             0x8F => {
                 let sum = self.a as u16 + self.a as u16 + if self.carry { 1 } else { 0 };
-                self.set_auxiliary_carry(
+                self.set_auxiliary_carry_addition_flag(
                     self.a,
                     self.a.wrapping_add(if self.carry { 1 } else { 0 }),
                     sum as u8,
@@ -1158,11 +1181,205 @@ impl I8080Core {
                 self.set_sign_flag(self.a);
                 self.set_zero_flag(self.a);
                 self.set_parity_flag(self.a as u16);
-                self.set_carry_flag_arithmetic(sum);
+                self.set_carry_flag_arithmetic_addition(sum);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
-            0x90..=0xFF => {
+            0x90 => {
+                let dif = self.a as u16 - self.b as u16;
+                self.set_auxiliary_carry_subtraction_flag(self.a, self.b);
+                self.set_carry_flag_arithmetic_subtraction(self.a, self.b);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x91 => {
+                let dif = self.a as u16 - self.c as u16;
+                self.set_auxiliary_carry_subtraction_flag(self.a, self.c);
+                self.set_carry_flag_arithmetic_subtraction(self.a, self.c);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x92 => {
+                let dif = self.a as u16 - self.d as u16;
+                self.set_auxiliary_carry_subtraction_flag(self.a, self.d);
+                self.set_carry_flag_arithmetic_subtraction(self.a, self.d);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x93 => {
+                let dif = self.a as u16 - self.e as u16;
+                self.set_auxiliary_carry_subtraction_flag(self.a, self.e);
+                self.set_carry_flag_arithmetic_subtraction(self.a, self.e);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x94 => {
+                let dif = self.a as u16 - self.h as u16;
+                self.set_auxiliary_carry_subtraction_flag(self.a, self.h);
+                self.set_carry_flag_arithmetic_subtraction(self.a, self.h);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x95 => {
+                let dif = self.a as u16 - self.l as u16;
+                self.set_auxiliary_carry_subtraction_flag(self.a, self.l);
+                self.set_carry_flag_arithmetic_subtraction(self.a, self.l);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x96 => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+                let value_from_memory = self.memory[addr as usize] as u8;
+                let dif = self.a as u16 - value_from_memory as u16;
+                self.set_auxiliary_carry_subtraction_flag(self.a, value_from_memory);
+                self.set_carry_flag_arithmetic_subtraction(self.a, value_from_memory);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x97 => {
+                let dif = self.a as u16 - self.a as u16;
+                self.set_auxiliary_carry_subtraction_flag(self.a, self.a);
+                self.set_carry_flag_arithmetic_subtraction(self.a, self.a);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x98 => {
+                let carry_value = if self.carry { 1 } else { 0 };
+                let dif = self.a as u16 - self.b as u16 - carry_value;
+                self.set_auxiliary_carry_subtraction_flag(self.a, self.b + carry_value as u8);
+                self.set_carry_flag_arithmetic_subtraction(self.a, self.b + carry_value as u8);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x99 => {
+                let carry_value = if self.carry { 1 } else { 0 };
+                let dif = self.a as u16 - self.c as u16 - carry_value;
+                self.set_auxiliary_carry_subtraction_flag(self.a, self.c + carry_value as u8);
+                self.set_carry_flag_arithmetic_subtraction(self.a, self.c + carry_value as u8);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x9A => {
+                let carry_value = if self.carry { 1 } else { 0 };
+                let dif = self.a as u16 - self.d as u16 - carry_value;
+                self.set_auxiliary_carry_subtraction_flag(self.a, self.d + carry_value as u8);
+                self.set_carry_flag_arithmetic_subtraction(self.a, self.d + carry_value as u8);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x9B => {
+                let carry_value = if self.carry { 1 } else { 0 };
+                let dif = self.a as u16 - self.e as u16 - carry_value;
+                self.set_auxiliary_carry_subtraction_flag(self.a, self.e + carry_value as u8);
+                self.set_carry_flag_arithmetic_subtraction(self.a, self.e + carry_value as u8);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x9C => {
+                let carry_value = if self.carry { 1 } else { 0 };
+                let dif = self.a as u16 - self.h as u16 - carry_value;
+                self.set_auxiliary_carry_subtraction_flag(self.a, self.h + carry_value as u8);
+                self.set_carry_flag_arithmetic_subtraction(self.a, self.h + carry_value as u8);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x9D => {
+                let carry_value = if self.carry { 1 } else { 0 };
+                let dif = self.a as u16 - self.l as u16 - carry_value;
+                self.set_auxiliary_carry_subtraction_flag(self.a, self.l + carry_value as u8);
+                self.set_carry_flag_arithmetic_subtraction(self.a, self.l + carry_value as u8);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x9E => {
+                let addr = (self.h as u16) << 8 | (self.l as u16);
+                let value_from_memory = self.memory[addr as usize] as u8;
+                let carry_value = if self.carry { 1 } else { 0 };
+                let dif = self.a as u16 - value_from_memory as u16 - carry_value;
+                self.set_auxiliary_carry_subtraction_flag(
+                    self.a,
+                    value_from_memory + carry_value as u8,
+                );
+                self.set_carry_flag_arithmetic_subtraction(
+                    self.a,
+                    value_from_memory + carry_value as u8,
+                );
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0x9F => {
+                let carry_value = if self.carry { 1 } else { 0 };
+                let dif = self.a as u16 - self.a as u16 - carry_value;
+                self.set_auxiliary_carry_subtraction_flag(self.a, self.a + carry_value as u8);
+                self.set_carry_flag_arithmetic_subtraction(self.a, self.a + carry_value as u8);
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0xA0..=0xFF => {
                 return StepInstructionResult::Ok;
             }
         }
