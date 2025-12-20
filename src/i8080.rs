@@ -1711,6 +1711,184 @@ impl I8080Core {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 return StepInstructionResult::Ok;
             }
+            0xC0 => {
+                if !self.zero {
+                    temp1_8 = self.memory[self.stack_pointer as usize];
+                    temp2_8 = self.memory[self.stack_pointer as usize + 1];
+                    self.stack_pointer = self.stack_pointer.wrapping_add(2);
+
+                    self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
+                    return StepInstructionResult::Ok;
+                }
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0xC1 => {
+                self.b = self.memory[self.stack_pointer as usize + 1];
+                self.c = self.memory[self.stack_pointer as usize];
+
+                self.program_counter = self.program_counter.wrapping_add(1);
+                self.stack_pointer = self.stack_pointer.wrapping_add(2);
+
+                return StepInstructionResult::Ok;
+            }
+            0xC2 => {
+                if !self.zero {
+                    self.program_counter = (self.memory[self.program_counter as usize + 1] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+
+                return StepInstructionResult::Ok;
+            }
+            0xC3 => {
+                self.program_counter = (self.memory[self.program_counter as usize + 1] as u16) << 8
+                    | self.memory[self.program_counter as usize] as u16;
+
+                return StepInstructionResult::Ok;
+            }
+            0xC4 => {
+                temp3_16 = self.program_counter.wrapping_add(3);
+                if !self.zero {
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize + 1] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+                return StepInstructionResult::Ok;
+            }
+            0xC5 => {
+                self.memory[self.stack_pointer as usize] = self.c;
+                self.memory[self.stack_pointer as usize + 1] = self.b;
+
+                self.stack_pointer = self.stack_pointer.wrapping_add(2);
+                self.program_counter = self.program_counter.wrapping_add(1);
+
+                return StepInstructionResult::Ok;
+            }
+            0xC6 => {
+                let sum = self.a as u16 + self.memory[self.program_counter as usize + 1] as u16;
+                self.set_auxiliary_carry_addition_flag(
+                    self.a,
+                    self.memory[self.program_counter as usize + 1],
+                    sum as u8,
+                );
+                self.a = sum as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.set_carry_flag_arithmetic_addition(sum);
+
+                self.program_counter = self.program_counter.wrapping_add(2);
+                return StepInstructionResult::Ok;
+            }
+            0xC7 => {
+                temp3_16 = self.program_counter.wrapping_add(1);
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+                self.program_counter = 0x0000;
+                return StepInstructionResult::Ok;
+            }
+            0xC8 => {
+                if self.zero {
+                    temp1_8 = self.memory[self.stack_pointer as usize];
+                    temp2_8 = self.memory[self.stack_pointer as usize + 1];
+                    self.stack_pointer = self.stack_pointer.wrapping_add(2);
+
+                    self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
+                    return StepInstructionResult::Ok;
+                }
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0xC9 => {
+                self.program_counter = (self.memory[self.stack_pointer as usize + 1] as u16) << 8
+                    | self.memory[self.stack_pointer as usize] as u16;
+
+                self.stack_pointer = self.stack_pointer.wrapping_add(2);
+                return StepInstructionResult::Ok;
+            }
+            0xCA => {
+                if self.zero {
+                    self.program_counter = (self.memory[self.program_counter as usize + 1] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+
+                return StepInstructionResult::Ok;
+            }
+            0xCB => {
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::NoOperation;
+            }
+            0xCC => {
+                temp3_16 = self.program_counter.wrapping_add(3);
+                if self.zero {
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize + 1] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+                return StepInstructionResult::Ok;
+            }
+            0xCD => {
+                temp3_16 = self.program_counter.wrapping_add(3);
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+                self.program_counter = (self.memory[self.program_counter as usize + 2] as u16) << 8
+                    | self.memory[self.program_counter as usize + 1] as u16;
+                return StepInstructionResult::Ok;
+            }
+            0xCE => {
+                let sum = self.a as u16
+                    + self.memory[self.program_counter as usize + 1] as u16
+                    + if self.carry { 1 } else { 0 };
+                self.set_auxiliary_carry_addition_flag(
+                    self.a,
+                    self.memory[self.program_counter as usize + 1].wrapping_add(if self.carry {
+                        1
+                    } else {
+                        0
+                    }),
+                    sum as u8,
+                );
+                self.a = sum as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.set_carry_flag_arithmetic_addition(sum);
+                self.program_counter = self.program_counter.wrapping_add(2);
+                return StepInstructionResult::Ok;
+            }
+            0xCF => {
+                temp3_16 = self.program_counter.wrapping_add(1);
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+                self.program_counter = 0x0008;
+                return StepInstructionResult::Ok;
+            }
             0xC0..=0xFF => {
                 return StepInstructionResult::Ok;
             }
