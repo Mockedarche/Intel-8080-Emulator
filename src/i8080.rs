@@ -1889,7 +1889,7 @@ impl I8080Core {
                 self.program_counter = 0x0008;
                 return StepInstructionResult::Ok;
             }
-            0xC0..=0xFF => {
+            0xD0..=0xFF => {
                 return StepInstructionResult::Ok;
             }
         }
