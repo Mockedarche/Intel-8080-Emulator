@@ -1734,9 +1734,9 @@ impl I8080Core {
             }
             0xC2 => {
                 if !self.zero {
-                    self.program_counter = (self.memory[self.program_counter as usize + 1] as u16)
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
                         << 8
-                        | self.memory[self.program_counter as usize] as u16;
+                        | self.memory[self.program_counter as usize + 1] as u16;
                 } else {
                     self.program_counter = self.program_counter.wrapping_add(3);
                 }
@@ -1766,10 +1766,11 @@ impl I8080Core {
                 return StepInstructionResult::Ok;
             }
             0xC5 => {
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
                 self.memory[self.stack_pointer as usize] = self.c;
-                self.memory[self.stack_pointer as usize + 1] = self.b;
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = self.b;
 
-                self.stack_pointer = self.stack_pointer.wrapping_add(2);
                 self.program_counter = self.program_counter.wrapping_add(1);
 
                 return StepInstructionResult::Ok;
@@ -1889,7 +1890,502 @@ impl I8080Core {
                 self.program_counter = 0x0008;
                 return StepInstructionResult::Ok;
             }
-            0xD0..=0xFF => {
+            0xD0 => {
+                if !self.carry {
+                    temp1_8 = self.memory[self.stack_pointer as usize];
+                    temp2_8 = self.memory[self.stack_pointer as usize + 1];
+                    self.stack_pointer = self.stack_pointer.wrapping_add(2);
+
+                    self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
+                    return StepInstructionResult::Ok;
+                }
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0xD1 => {
+                self.d = self.memory[self.stack_pointer as usize + 1];
+                self.e = self.memory[self.stack_pointer as usize];
+
+                self.program_counter = self.program_counter.wrapping_add(1);
+                self.stack_pointer = self.stack_pointer.wrapping_add(2);
+
+                return StepInstructionResult::Ok;
+            }
+            0xD2 => {
+                if !self.carry {
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize + 1] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+
+                return StepInstructionResult::Ok;
+            }
+            0xD3 => {
+                // TODO ADD SPECIFIC OUT BEHAVIOR (AS A GENERIC)
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0xD4 => {
+                temp3_16 = self.program_counter.wrapping_add(3);
+                if !self.carry {
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize + 1] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+                return StepInstructionResult::Ok;
+            }
+            0xD5 => {
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = self.d;
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = self.e;
+
+                self.program_counter = self.program_counter.wrapping_add(1);
+
+                return StepInstructionResult::Ok;
+            }
+            0xD6 => {
+                let dif = self.a as u16 - self.memory[self.program_counter as usize + 1] as u16;
+                self.set_auxiliary_carry_subtraction_flag(
+                    self.a,
+                    self.memory[self.program_counter as usize + 1],
+                );
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.set_carry_flag_arithmetic_subtraction(
+                    self.a,
+                    self.memory[self.program_counter as usize + 1],
+                );
+
+                self.program_counter = self.program_counter.wrapping_add(2);
+                return StepInstructionResult::Ok;
+            }
+            0xD7 => {
+                temp3_16 = self.program_counter.wrapping_add(1);
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+                self.program_counter = 0x0010;
+                return StepInstructionResult::Ok;
+            }
+            0xD8 => {
+                if self.carry {
+                    temp1_8 = self.memory[self.stack_pointer as usize];
+                    temp2_8 = self.memory[self.stack_pointer as usize + 1];
+                    self.stack_pointer = self.stack_pointer.wrapping_add(2);
+
+                    self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
+                    return StepInstructionResult::Ok;
+                }
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0xD9 => {
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::NoOperation;
+            }
+            0xDA => {
+                if self.carry {
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize + 1] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+
+                return StepInstructionResult::Ok;
+            }
+            0xDB => {
+                // TODO ADD SPECIFIC IN BEHAVIOR (AS A GENERIC)
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0xDC => {
+                temp3_16 = self.program_counter.wrapping_add(3);
+                if self.carry {
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize + 1] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+                return StepInstructionResult::Ok;
+            }
+            0xDD => {
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::NoOperation;
+            }
+            0xDE => {
+                let carry_value = if self.carry { 1 } else { 0 };
+                let immediate = self.memory[self.program_counter as usize + 1];
+                let subtrahend = immediate.wrapping_add(carry_value);
+
+                let dif = self.a as u16 - subtrahend as u16;
+
+                self.set_auxiliary_carry_subtraction_flag(self.a, subtrahend);
+                self.set_carry_flag_arithmetic_subtraction(self.a, subtrahend);
+
+                self.a = dif as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+
+                self.program_counter = self.program_counter.wrapping_add(2);
+                return StepInstructionResult::Ok;
+            }
+            0xDF => {
+                temp3_16 = self.program_counter.wrapping_add(1);
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+                self.program_counter = 0x0018;
+                return StepInstructionResult::Ok;
+            }
+            0xE0 => {
+                if !self.parity {
+                    temp1_8 = self.memory[self.stack_pointer as usize];
+                    temp2_8 = self.memory[self.stack_pointer as usize + 1];
+                    self.stack_pointer = self.stack_pointer.wrapping_add(2);
+
+                    self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
+                    return StepInstructionResult::Ok;
+                }
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0xE1 => {
+                self.h = self.memory[self.stack_pointer as usize + 1];
+                self.l = self.memory[self.stack_pointer as usize];
+
+                self.program_counter = self.program_counter.wrapping_add(1);
+                self.stack_pointer = self.stack_pointer.wrapping_add(2);
+
+                return StepInstructionResult::Ok;
+            }
+            0xE2 => {
+                if !self.parity {
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize + 1] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+
+                return StepInstructionResult::Ok;
+            }
+            0xE3 => {
+                temp1_8 = self.h;
+                temp2_8 = self.l;
+
+                self.l = self.memory[self.stack_pointer as usize];
+                self.h = self.memory[self.stack_pointer as usize + 1];
+                self.memory[self.stack_pointer as usize] = temp2_8;
+                self.memory[self.stack_pointer as usize + 1] = temp1_8;
+
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0xE4 => {
+                temp3_16 = self.program_counter.wrapping_add(3);
+                if !self.parity {
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize + 1] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+                return StepInstructionResult::Ok;
+            }
+            0xE5 => {
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = self.h;
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = self.l;
+
+                self.program_counter = self.program_counter.wrapping_add(1);
+
+                return StepInstructionResult::Ok;
+            }
+            0xE6 => {
+                temp1_8 = self.memory[self.program_counter as usize + 1];
+                self.set_auxiliary_carry_addition_flag(self.a, temp1_8, self.a & temp1_8);
+                self.a = self.a & temp1_8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.carry = false;
+                self.program_counter = self.program_counter.wrapping_add(2);
+                return StepInstructionResult::Ok;
+            }
+            0xE7 => {
+                temp3_16 = self.program_counter.wrapping_add(1);
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+                self.program_counter = 0x0020;
+                return StepInstructionResult::Ok;
+            }
+            0xE8 => {
+                if self.parity {
+                    temp1_8 = self.memory[self.stack_pointer as usize];
+                    temp2_8 = self.memory[self.stack_pointer as usize + 1];
+                    self.stack_pointer = self.stack_pointer.wrapping_add(2);
+
+                    self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
+                    return StepInstructionResult::Ok;
+                }
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0xE9 => {
+                self.program_counter = (self.h as u16) << 8 | (self.l as u16);
+                return StepInstructionResult::Ok;
+            }
+            0xEA => {
+                if self.parity {
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize + 1] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+
+                return StepInstructionResult::Ok;
+            }
+            0xEB => {
+                temp1_8 = self.h;
+                temp2_8 = self.l;
+
+                self.h = self.d;
+                self.l = self.e;
+                self.d = temp1_8;
+                self.e = temp2_8;
+
+                return StepInstructionResult::Ok;
+            }
+            0xEC => {
+                temp3_16 = self.program_counter.wrapping_add(3);
+                if self.parity {
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize + 1] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+                return StepInstructionResult::Ok;
+            }
+            0xED => {
+                return StepInstructionResult::Ok;
+            }
+            0xEE => {
+                self.auxiliary_carry = false;
+                self.a = self.a ^ self.memory[self.program_counter as usize + 1] as u8;
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.carry = false;
+                self.program_counter = self.program_counter.wrapping_add(2);
+
+                return StepInstructionResult::Ok;
+            }
+            0xEF => {
+                temp3_16 = self.program_counter.wrapping_add(1);
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+                self.program_counter = 0x0028;
+                return StepInstructionResult::Ok;
+            }
+            0xF0 => {
+                if self.sign {
+                    temp1_8 = self.memory[self.stack_pointer as usize];
+                    temp2_8 = self.memory[self.stack_pointer as usize + 1];
+                    self.stack_pointer = self.stack_pointer.wrapping_add(2);
+
+                    self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
+                    return StepInstructionResult::Ok;
+                }
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0xF1 => {
+
+                self.a = self.memory[self.stack_pointer as usize + 1];
+                temp2_8 = self.memory[self.stack_pointer as usize];
+
+                self.carry = (temp2_8 & 0b00000001) != 0;      // bit 0
+                self.parity = (temp2_8 & 0b00000100) != 0;     // bit 2
+                self.auxiliary_carry = (temp2_8 & 0b00010000) != 0; // bit 4
+                self.zero = (temp2_8 & 0b01000000) != 0;       // bit 6
+                self.sign = (temp2_8 & 0b10000000) != 0;       // bit 7
+
+                self.program_counter = self.program_counter.wrapping_add(1);
+                self.stack_pointer = self.stack_pointer.wrapping_add(2);
+
+                return StepInstructionResult::Ok;
+            }
+            0xF2 => {
+                if self.sign {
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize + 1] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+
+                return StepInstructionResult::Ok;
+            }
+            0xF3 => {
+                //TODO attach intruupts and this disables them till 0xFB
+                return StepInstructionResult::Ok;
+            }
+            0xF4 => {
+                temp3_16 = self.program_counter.wrapping_add(3);
+                if self.sign {
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize + 1] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+                return StepInstructionResult::Ok;
+            }
+            0xF5 => {
+
+                // make accum and flags
+
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = self.h;
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = self.l;
+
+                self.program_counter = self.program_counter.wrapping_add(1);
+
+                return StepInstructionResult::Ok;
+            }
+            0xF6 => {
+                self.auxiliary_carry = false;
+                self.a = self.a ^ self.memory[self.program_counter as usize + 1];
+                self.set_sign_flag(self.a);
+                self.set_zero_flag(self.a);
+                self.set_parity_flag(self.a as u16);
+                self.carry = false;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0xF7 => {
+                temp3_16 = self.program_counter.wrapping_add(1);
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+                self.program_counter = 0x0030;
+                return StepInstructionResult::Ok;
+            }
+            0xF8 => {
+                if self.sign {
+                    temp1_8 = self.memory[self.stack_pointer as usize];
+                    temp2_8 = self.memory[self.stack_pointer as usize + 1];
+                    self.stack_pointer = self.stack_pointer.wrapping_add(2);
+
+                    self.program_counter = (temp2_8 as u16) << 8 | temp1_8 as u16;
+                    return StepInstructionResult::Ok;
+                }
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0xF9 => {
+                self.stack_pointer = (self.h as u16) << 8 | self.l as u16;
+                self.program_counter = self.program_counter.wrapping_add(1);
+                return StepInstructionResult::Ok;
+            }
+            0xFA => {
+                if self.sign {
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize + 1] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+
+                return StepInstructionResult::Ok;
+            }
+            0xFB => {
+                //todo!(enable interupts)
+                return StepInstructionResult::Ok;
+            }
+            0xFC => {
+                temp3_16 = self.program_counter.wrapping_add(3);
+                if self.sign {
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                    self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+
+                    self.program_counter = (self.memory[self.program_counter as usize + 2] as u16)
+                        << 8
+                        | self.memory[self.program_counter as usize + 1] as u16;
+                } else {
+                    self.program_counter = self.program_counter.wrapping_add(3);
+                }
+                return StepInstructionResult::Ok;
+            }
+            0xFD => {
+                return StepInstructionResult::Ok;
+            }
+            0xFE => { 
+                temp1_8 = self.memory[self.program_counter as usize + 1] as u8;   
+                let dif = self.a as u16 - temp1_8 as u16;
+                self.set_auxiliary_carry_subtraction_flag(self.a, temp1_8);
+                self.set_carry_flag_arithmetic_subtraction(self.a, temp1_8);
+                self.set_sign_flag(dif as u8);
+                self.set_zero_flag(dif as u8);
+                self.set_parity_flag(dif as u16);
+                self.program_counter = self.program_counter.wrapping_add(2);
+                return StepInstructionResult::Ok;
+            }
+            0xFF => {
+                temp3_16 = self.program_counter.wrapping_add(1);
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = (temp3_16 >> 8) as u8;
+                self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                self.memory[self.stack_pointer as usize] = temp3_16 as u8;
+                self.program_counter = 0x0038;
                 return StepInstructionResult::Ok;
             }
         }
