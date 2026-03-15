@@ -1,6 +1,14 @@
 [package]
 name = "main"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+default-run = "main"
 
 [dependencies]
+
+
+[lib]
+name = "i8080_emulator"
+path = "src/i8080.rs"
+
+
