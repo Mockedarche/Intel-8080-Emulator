@@ -1,6 +1,8 @@
 # Intel-8080-Emulator (Accuracy complete)
 Space for my implementation of a Intel 8080 emulation (just the CORE instruction emulation) that ill use in the future for a space invaders emulator
 
+Planning to work on some performance pieces and then move on to space invaders 
+
 Fully accurate i8080 core in rust. Passes all the test roms I could find output below
 (note all non i8080 output is just the test script)
 
